@@ -1,10 +1,10 @@
-function result = se_rootmusic_1bit_doa_estimator(Y_onebit, K, opts, data)
-% se_rootmusic_1bit_doa_estimator
+function result = se_rootmusic_cleanproj_1bit_doa_estimator(Y_onebit, K, opts, data)
+% se_rootmusic_cleanproj_1bit_doa_estimator
 % -------------------------------------------------------------
 % Subspace-enhanced closed-loop one-bit root-MUSIC with:
 %   1) quantization-consistent covariance correction
 %   2) Toeplitz/PSD structural projection
-%   3) structured rank-K + isotropic-noise projection
+%   3) explicit structured subspace projection
 %   4) model-consistent covariance reconstruction
 %   5) confidence-gated global one-bit consistency refinement
 %
@@ -146,7 +146,7 @@ function opts = fill_default_opts(opts, K)
     if ~isfield(opts, 'local_refine_enable'),      opts.local_refine_enable = true; end
     if ~isfield(opts, 'local_force_refine'),       opts.local_force_refine = false; end
     if ~isfield(opts, 'subspace_enhance_enable'),  opts.subspace_enhance_enable = true; end
-    if ~isfield(opts, 'subspace_projection_mu'),   opts.subspace_projection_mu = 0.85; end
+    if ~isfield(opts, 'subspace_clean_blend_rho'), opts.subspace_clean_blend_rho = 0.40; end
     if ~isfield(opts, 'local_trigger_sep_deg'),    opts.local_trigger_sep_deg = 4.0; end
     if ~isfield(opts, 'local_trigger_boundary_ratio'), opts.local_trigger_boundary_ratio = 0.22; end
     if ~isfield(opts, 'local_refine_rounds'),      opts.local_refine_rounds = 2; end
@@ -308,19 +308,21 @@ function R = apply_subspace_enhancement_if_needed(R, K, opts)
         return;
     end
 
-    noise_idx = (K + 1):numel(d);
-    sigma2 = max(mean(d(noise_idx)), opts.psd_floor);
-    d_target = d;
-    d_target(noise_idx) = sigma2;
-    d_target = max(d_target, opts.psd_floor);
+    Us = U(:, 1:K);
+    Un = U(:, (K + 1):end);
+    Lambda_s = diag(d(1:K));
+    sigma2 = max(mean(d((K + 1):end)), opts.psd_floor);
 
-    alpha = opts.subspace_projection_mu / (1 + opts.subspace_projection_mu);
-    d_new = (1 - alpha) .* d + alpha .* d_target;
-    d_new = max(d_new, opts.psd_floor);
+    R_target = Us * Lambda_s * Us';
+    if ~isempty(Un)
+        R_target = R_target + sigma2 * (Un * Un');
+    end
+    R_target = (R_target + R_target') / 2;
 
-    R = U * diag(d_new) * U';
+    rho = min(max(opts.subspace_clean_blend_rho, 0), 1);
+    R = (1 - rho) * R0 + rho * R_target;
     R = (R + R') / 2;
-    R = covariance_to_correlation(R);
+    R = project_structured_correlation(R, opts);
 end
 
 function meta = estimate_covariance_difficulty(R_sub, K)
