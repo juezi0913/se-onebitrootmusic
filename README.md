@@ -35,3 +35,18 @@ The `figures/` folder contains the refreshed eight benchmark plots built from:
 These figures are intended for paper drafting and result comparison. The corresponding current merged result file is:
 
 - `results/results_20260427_162032.mat`
+
+## Supplementary experiments
+
+Additional paper-supporting experiments are stored under:
+
+- `experiments/run_seroot_module_ablation.m`
+- `experiments/run_seroot_globalrefine_stats.m`
+- `experiments/run_seroot_multiclose_snr.m`
+- `results/supplementary/`
+
+These supplementary experiments cover:
+
+1. module ablation on `Fig.6` and `Fig.7`,
+2. trigger / accept statistics of the gated global refinement,
+3. a multi-close-source scenario with two closely spaced source pairs.
